@@ -21,9 +21,6 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Warrior",
-  icons: {
-    icon: "/images/IconeAPP.png",
-  },
 };
 
 export default function RootLayout({
