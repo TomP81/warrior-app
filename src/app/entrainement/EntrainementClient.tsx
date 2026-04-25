@@ -136,6 +136,8 @@ export default function EntrainementClient() {
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [yogaTimerDuration, setYogaTimerDuration] = useState<number | null>(null);
+  const [hasChosenYogaMode, setHasChosenYogaMode] = useState(false);
 
   useEffect(() => {
     const savedActivities = localStorage.getItem("plannedActivities");
@@ -191,25 +193,40 @@ export default function EntrainementClient() {
   const currentExercise = exercises[currentExerciseIndex];
 
   const baseExercises = selectedActivity ? EXERCISES[selectedActivity] ?? [] : [];
-  const exercisesPerSeries =
-    selectedActivity === "Muscu"
-      ? Math.max(baseExercises.length - 2, 1)
-      : baseExercises.length;
 
-  const isWarmup = selectedActivity === "Muscu" && currentExerciseIndex === 0;
-  const isCooldown =
-    selectedActivity === "Muscu" && currentExerciseIndex === exercises.length - 1;
-  const isPlank = currentExercise?.title === "Gainage planche";
+const exercisesPerSeries =
+  selectedActivity === "Muscu"
+    ? Math.max(baseExercises.length - 2, 1)
+    : baseExercises.length;
 
-  const currentSeries =
-    selectedActivity === "Muscu" && !isWarmup && !isCooldown
-      ? Math.floor((currentExerciseIndex - 1) / exercisesPerSeries) + 1
-      : null;
+const isWarmup = selectedActivity === "Muscu" && currentExerciseIndex === 0;
 
-  const currentExerciseInSeries =
-    selectedActivity === "Muscu" && !isWarmup && !isCooldown
-      ? ((currentExerciseIndex - 1) % exercisesPerSeries) + 1
-      : null;
+const isCooldown =
+  selectedActivity === "Muscu" &&
+  currentExerciseIndex === exercises.length - 1;
+
+const isRest = currentExercise?.title === "Repos";
+
+const isPlank = currentExercise?.title === "Gainage planche";
+const isYoga = selectedActivity === "Yoga";
+const hasTimer = isPlank || isYoga;
+
+const muscuExerciseIndexesBeforeCurrent =
+  selectedActivity === "Muscu"
+    ? exercises
+        .slice(1, currentExerciseIndex + 1)
+        .filter((exercise) => exercise.title !== "Repos").length
+    : 0;
+
+const currentSeries =
+  selectedActivity === "Muscu" && !isWarmup && !isCooldown && !isRest
+    ? Math.floor((muscuExerciseIndexesBeforeCurrent - 1) / exercisesPerSeries) + 1
+    : null;
+
+const currentExerciseInSeries =
+  selectedActivity === "Muscu" && !isWarmup && !isCooldown && !isRest
+    ? ((muscuExerciseIndexesBeforeCurrent - 1) % exercisesPerSeries) + 1
+    : null;
 
   function finishTraining() {
     if (!date) return;
@@ -266,44 +283,52 @@ export default function EntrainementClient() {
     setTouchEndX(null);
   }
 
-  function startPlankTimer() {
-    setTimeLeft(40);
-    setIsTimerRunning(true);
+  function startTimer(duration: number) {
+  setTimeLeft(duration);
+  setIsTimerRunning(true);
   }
 
   useEffect(() => {
-    if (!isPlank) {
-      setTimeLeft(null);
-      setIsTimerRunning(false);
-      return;
-    }
-
+  if (isPlank) {
     setTimeLeft(40);
     setIsTimerRunning(false);
-  }, [currentExerciseIndex, isPlank]);
+    return;
+  }
+
+  if (isYoga && yogaTimerDuration) {
+    setTimeLeft(yogaTimerDuration);
+    setIsTimerRunning(false);
+    return;
+  }
+
+  setTimeLeft(null);
+  setIsTimerRunning(false);
+}, [currentExerciseIndex, isPlank, isYoga, yogaTimerDuration]);
 
   useEffect(() => {
-    if (!isPlank || !isTimerRunning || timeLeft === null) return;
+  if (!hasTimer || !isTimerRunning || timeLeft === null) return;
 
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev === null) return prev;
+  const interval = setInterval(() => {
+    setTimeLeft((prev) => {
+      if (prev === null) return prev;
 
-        if (prev <= 1) {
-          clearInterval(interval);
-          setIsTimerRunning(false);
-          setTimeout(() => {
-            goToNextExercise();
-          }, 0);
-          return 0;
-        }
+      if (prev <= 1) {
+        clearInterval(interval);
+        setIsTimerRunning(false);
 
-        return prev - 1;
-      });
-    }, 1000);
+        setTimeout(() => {
+          goToNextExercise();
+        }, 0);
 
-    return () => clearInterval(interval);
-  }, [isPlank, isTimerRunning, timeLeft]);
+        return 0;
+      }
+
+      return prev - 1;
+    });
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, [hasTimer, isTimerRunning, timeLeft]);
 
   function goBackToCalendar() {
     const confirmQuit = window.confirm("Quitter l'entraînement ?");
@@ -321,7 +346,50 @@ export default function EntrainementClient() {
       </main>
     );
   }
+if (selectedActivity === "Yoga" && !hasChosenYogaMode) {
+  return (
+    <main className="min-h-screen bg-black text-white flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-2xl border border-green-500/50 bg-zinc-950 p-6 text-center shadow-[0_0_12px_rgba(34,197,94,0.15)]">
+        <h1 className="text-2xl font-bold text-white">Choisis ton rythme</h1>
 
+        <p className="mt-2 text-sm text-green-300/80">
+          Sélectionne la durée pour chaque posture de yoga.
+        </p>
+
+        <div className="mt-6 space-y-3">
+          <button
+            onClick={() => {
+              setYogaTimerDuration(40);
+              setHasChosenYogaMode(true);
+              setTimeLeft(40);
+            }}
+            className="w-full rounded-xl bg-green-500 px-4 py-4 text-sm font-bold text-black hover:opacity-90"
+          >
+            Yoga doux — 40s
+          </button>
+
+          <button
+            onClick={() => {
+              setYogaTimerDuration(75);
+              setHasChosenYogaMode(true);
+              setTimeLeft(75);
+            }}
+            className="w-full rounded-xl border border-green-500/50 bg-black px-4 py-4 text-sm font-bold text-white hover:bg-green-900/30"
+          >
+            Yoga profond — 75s
+          </button>
+        </div>
+
+        <button
+          onClick={() => router.push("/")}
+          className="mt-5 text-sm text-gray-400 hover:text-white"
+        >
+          Retour au calendrier
+        </button>
+      </div>
+    </main>
+  );
+}
   if (!date || !selectedActivity || exercises.length === 0) {
     return (
       <main className="min-h-screen bg-gray-50 p-6">
@@ -353,31 +421,33 @@ export default function EntrainementClient() {
 
         <p className="text-sm opacity-70">
           {selectedActivity === "Muscu" ? (
-            isWarmup ? (
-              <>Échauffement</>
-            ) : isCooldown ? (
-              <>Étirement</>
-            ) : (
-              <>
-                Série {currentSeries} / {TOTAL_SERIES} — Exercice{" "}
-                {currentExerciseInSeries} / {exercisesPerSeries}
-              </>
-            )
-          ) : (
-            <>Exercice {currentExerciseIndex + 1} / {exercises.length}</>
-          )}
+  isWarmup ? (
+    <>Échauffement</>
+  ) : isCooldown ? (
+    <>Étirement</>
+  ) : isRest ? (
+    <>Repos</>
+  ) : (
+    <>
+      Série {currentSeries} / {TOTAL_SERIES} — Exercice{" "}
+      {currentExerciseInSeries} / {exercisesPerSeries}
+    </>
+  )
+) : (
+  <>Exercice {currentExerciseIndex + 1} / {exercises.length}</>
+)}
         </p>
 
         <h1 className="mt-1 text-xl font-semibold">{currentExercise.title}</h1>
 
-        {isPlank && timeLeft !== null && (
-          <div className="mt-3">
-            <p className="text-sm text-green-400">
-              {isTimerRunning ? "Temps restant" : "Chrono prêt"}
-            </p>
-            <p className="text-4xl font-bold text-white">{timeLeft}s</p>
-          </div>
-        )}
+        {hasTimer && timeLeft !== null && (
+  <div className="mt-3">
+    <p className="text-sm text-green-400">
+      {isTimerRunning ? "Temps restant" : "Chrono prêt"}
+    </p>
+    <p className="text-4xl font-bold text-white">{timeLeft}s</p>
+  </div>
+)}
       </div>
 
       <div
@@ -398,14 +468,14 @@ export default function EntrainementClient() {
       </div>
 
       <div className="p-6">
-        {isPlank && !isTimerRunning && (
-          <button
-            onClick={startPlankTimer}
-            className="w-full rounded-2xl bg-white text-black text-lg font-bold py-5 shadow-lg active:scale-95 transition"
-          >
-            Lancer le chrono
-          </button>
-        )}
+        {hasTimer && !isTimerRunning && timeLeft !== null && (
+  <button
+    onClick={() => startTimer(timeLeft)}
+    className="w-full rounded-2xl bg-white text-black text-lg font-bold py-5 shadow-lg active:scale-95 transition"
+  >
+    Lancer le chrono
+  </button>
+)}
 
         <p className="mt-3 text-center text-xs text-gray-400">
           Glisse à gauche ou à droite pour changer d’exercice

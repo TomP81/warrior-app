@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Knewave } from "next/font/google";
 import "./globals.css";
 import MusicPlayer from "@/components/MusicPlayer";
+import Intro from "@/components/Intro";
 
 const knewave = Knewave({
   subsets: ["latin"],
@@ -25,17 +26,19 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html
       lang="fr"
       className={`${geistSans.variable} ${geistMono.variable} ${knewave.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-black text-white">
-        <MusicPlayer />
-        {children}
+        <Intro>
+          <MusicPlayer />
+          {children}
+        </Intro>
       </body>
     </html>
   );
