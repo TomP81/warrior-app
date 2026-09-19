@@ -3,10 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-const EXERCISES: Record<
-  string,
-  { title: string; image: string; instructions: string }[]
-> = {
+import CalisthenicsSetup from "@/components/CalisthenicsSetup";
+import ExerciseTimer from "@/components/ExerciseTimer";
+import type { CalisthenicsGoal, CalisthenicsLevel, WorkoutExercise } from "@/data/calisthenics";
+import { buildCircuit } from "@/lib/workout";
+
+const REST_EXERCISE: WorkoutExercise = {
+  title: "Repos",
+  image: "/images/Repos_Muscu.png",
+  instructions: "Récupère quelques secondes avant la prochaine série.",
+};
+
+const EXERCISES: Record<string, WorkoutExercise[]> = {
   Muscu: [
     {
       title: "Échauffement",
@@ -134,8 +142,10 @@ export default function EntrainementClient() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [calisthenicsSelection, setCalisthenicsSelection] = useState<{
+    goal: CalisthenicsGoal;
+    level: CalisthenicsLevel;
+  } | null>(null);
   const [yogaTimerDuration, setYogaTimerDuration] = useState<number | null>(null);
   const [hasChosenYogaMode, setHasChosenYogaMode] = useState(false);
 
@@ -150,82 +160,64 @@ export default function EntrainementClient() {
   }, []);
 
   const selectedActivity = date ? plannedActivities[date] : null;
-  const TOTAL_SERIES = selectedActivity === "Muscu" ? 3 : 1;
-
-  const REST_EXERCISE = {
-    title: "Repos",
-    image: "/images/Repos_Muscu.png",
-    instructions: "Récupère quelques secondes avant la prochaine série.",
-  };
+  const isCalisthenics = selectedActivity === "Street workout";
+  const program = isCalisthenics ? calisthenicsSelection?.level : undefined;
+  const isCircuit = selectedActivity === "Muscu" || isCalisthenics;
+  const TOTAL_SERIES = program?.series ?? (selectedActivity === "Muscu" ? 3 : 1);
 
   const exercises = useMemo(() => {
-    if (!selectedActivity) return [];
-
-    const baseExercises = EXERCISES[selectedActivity] ?? [];
-
-    if (selectedActivity !== "Muscu") {
-      return baseExercises;
+    if (selectedActivity === "Street workout") {
+      if (!program) return [];
+      return buildCircuit(program.warmup, program.exercises, program.cooldown, program.series, {
+        title: "Repos",
+        image: "/images/SW_REPOS.png",
+        instructions: `Récupère pendant ${program.restSeconds} secondes avant la prochaine série.`,
+        durationSeconds: program.restSeconds > 0 ? program.restSeconds : undefined,
+      });
     }
-
-    if (baseExercises.length < 3) {
-      return baseExercises;
-    }
-
-    const warmup = baseExercises[0];
-    const cooldown = baseExercises[baseExercises.length - 1];
-    const mainExercises = baseExercises.slice(1, -1);
-
-    const workout: typeof baseExercises = [warmup];
-
-    for (let i = 0; i < TOTAL_SERIES; i++) {
-      workout.push(...mainExercises);
-
-      if (i < TOTAL_SERIES - 1) {
-        workout.push(REST_EXERCISE);
-      }
-    }
-
-    workout.push(cooldown);
-
-    return workout;
-  }, [selectedActivity, TOTAL_SERIES]);
+    const base = selectedActivity ? EXERCISES[selectedActivity] ?? [] : [];
+    if (selectedActivity !== "Muscu" || base.length < 3) return base;
+    return buildCircuit(base[0], base.slice(1, -1), base[base.length - 1], 3, REST_EXERCISE);
+  }, [selectedActivity, program]);
 
   const currentExercise = exercises[currentExerciseIndex];
 
-  const baseExercises = selectedActivity ? EXERCISES[selectedActivity] ?? [] : [];
+  const baseExercises = program
+    ? [program.warmup, ...program.exercises, program.cooldown]
+    : selectedActivity ? EXERCISES[selectedActivity] ?? [] : [];
 
 const exercisesPerSeries =
-  selectedActivity === "Muscu"
+  isCircuit
     ? Math.max(baseExercises.length - 2, 1)
     : baseExercises.length;
 
-const isWarmup = selectedActivity === "Muscu" && currentExerciseIndex === 0;
+const isWarmup = isCircuit && currentExerciseIndex === 0;
 
 const isCooldown =
-  selectedActivity === "Muscu" &&
+  isCircuit &&
   currentExerciseIndex === exercises.length - 1;
 
 const isRest = currentExercise?.title === "Repos";
 
-const isPlank = currentExercise?.title === "Gainage planche";
+const isPlank = selectedActivity === "Muscu" && currentExercise?.title === "Gainage planche";
 const isYoga = selectedActivity === "Yoga";
-const hasTimer = isPlank || isYoga;
+const timerDuration = currentExercise?.durationSeconds ?? (isPlank ? 40 : isYoga ? yogaTimerDuration : null);
 
-const muscuExerciseIndexesBeforeCurrent =
-  selectedActivity === "Muscu"
+const circuitExerciseIndexesBeforeCurrent =
+  isCircuit
     ? exercises
         .slice(1, currentExerciseIndex + 1)
         .filter((exercise) => exercise.title !== "Repos").length
     : 0;
 
 const currentSeries =
-  selectedActivity === "Muscu" && !isWarmup && !isCooldown && !isRest
-    ? Math.floor((muscuExerciseIndexesBeforeCurrent - 1) / exercisesPerSeries) + 1
+  isCircuit && !isWarmup && !isCooldown && !isRest
+    ? Math.floor((circuitExerciseIndexesBeforeCurrent - 1) / exercisesPerSeries) + 1
     : null;
 
 const currentExerciseInSeries =
-  selectedActivity === "Muscu" && !isWarmup && !isCooldown && !isRest
-    ? ((muscuExerciseIndexesBeforeCurrent - 1) % exercisesPerSeries) + 1
+  isCircuit && !isWarmup && !isCooldown && !isRest
+    ? ((circuitExerciseIndexesBeforeCurrent - 1) % exercisesPerSeries) + 1
     : null;
 
   function finishTraining() {
@@ -283,53 +275,6 @@ const currentExerciseInSeries =
     setTouchEndX(null);
   }
 
-  function startTimer(duration: number) {
-  setTimeLeft(duration);
-  setIsTimerRunning(true);
-  }
-
-  useEffect(() => {
-  if (isPlank) {
-    setTimeLeft(40);
-    setIsTimerRunning(false);
-    return;
-  }
-
-  if (isYoga && yogaTimerDuration) {
-    setTimeLeft(yogaTimerDuration);
-    setIsTimerRunning(false);
-    return;
-  }
-
-  setTimeLeft(null);
-  setIsTimerRunning(false);
-}, [currentExerciseIndex, isPlank, isYoga, yogaTimerDuration]);
-
-  useEffect(() => {
-  if (!hasTimer || !isTimerRunning || timeLeft === null) return;
-
-  const interval = setInterval(() => {
-    setTimeLeft((prev) => {
-      if (prev === null) return prev;
-
-      if (prev <= 1) {
-        clearInterval(interval);
-        setIsTimerRunning(false);
-
-        setTimeout(() => {
-          goToNextExercise();
-        }, 0);
-
-        return 0;
-      }
-
-      return prev - 1;
-    });
-  }, 1000);
-
-  return () => clearInterval(interval);
-}, [hasTimer, isTimerRunning, timeLeft]);
-
   function goBackToCalendar() {
     const confirmQuit = window.confirm("Quitter l'entraînement ?");
     if (confirmQuit) {
@@ -346,6 +291,17 @@ const currentExerciseInSeries =
       </main>
     );
   }
+if (isCalisthenics && !calisthenicsSelection) {
+  return (
+    <CalisthenicsSetup
+      onBack={() => router.push("/")}
+      onStart={(goal, level) => {
+        setCurrentExerciseIndex(0);
+        setCalisthenicsSelection({ goal, level });
+      }}
+    />
+  );
+}
 if (selectedActivity === "Yoga" && !hasChosenYogaMode) {
   return (
     <main className="min-h-screen bg-black text-white flex items-center justify-center p-6">
@@ -361,7 +317,6 @@ if (selectedActivity === "Yoga" && !hasChosenYogaMode) {
             onClick={() => {
               setYogaTimerDuration(40);
               setHasChosenYogaMode(true);
-              setTimeLeft(40);
             }}
             className="w-full rounded-xl bg-green-500 px-4 py-4 text-sm font-bold text-black hover:opacity-90"
           >
@@ -372,7 +327,6 @@ if (selectedActivity === "Yoga" && !hasChosenYogaMode) {
             onClick={() => {
               setYogaTimerDuration(75);
               setHasChosenYogaMode(true);
-              setTimeLeft(75);
             }}
             className="w-full rounded-xl border border-green-500/50 bg-black px-4 py-4 text-sm font-bold text-white hover:bg-green-900/30"
           >
@@ -410,9 +364,10 @@ if (selectedActivity === "Yoga" && !hasChosenYogaMode) {
   }
 
   return (
-    <main className="h-screen w-screen bg-black text-white flex flex-col">
+    <main className="min-h-screen w-full bg-black text-white flex flex-col">
       <div className="relative p-4 text-center">
         <button
+          aria-label="Quitter la séance"
           onClick={goBackToCalendar}
           className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-green-500/40 bg-black/70 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.4)] backdrop-blur-sm"
         >
@@ -420,7 +375,7 @@ if (selectedActivity === "Yoga" && !hasChosenYogaMode) {
         </button>
 
         <p className="text-sm opacity-70">
-          {selectedActivity === "Muscu" ? (
+          {isCircuit ? (
   isWarmup ? (
     <>Échauffement</>
   ) : isCooldown ? (
@@ -429,7 +384,7 @@ if (selectedActivity === "Yoga" && !hasChosenYogaMode) {
     <>Repos</>
   ) : (
     <>
-      Série {currentSeries} / {TOTAL_SERIES} — Exercice{" "}
+      {isCalisthenics ? "Tour" : "Série"} {currentSeries} / {TOTAL_SERIES} — Exercice{" "}
       {currentExerciseInSeries} / {exercisesPerSeries}
     </>
   )
@@ -438,20 +393,17 @@ if (selectedActivity === "Yoga" && !hasChosenYogaMode) {
 )}
         </p>
 
+        {isCalisthenics && calisthenicsSelection && (
+          <p className="mt-2 text-sm text-green-400">
+            {calisthenicsSelection.goal.name} — Niveau {calisthenicsSelection.level.id}
+          </p>
+        )}
         <h1 className="mt-1 text-xl font-semibold">{currentExercise.title}</h1>
 
-        {hasTimer && timeLeft !== null && (
-  <div className="mt-3">
-    <p className="text-sm text-green-400">
-      {isTimerRunning ? "Temps restant" : "Chrono prêt"}
-    </p>
-    <p className="text-4xl font-bold text-white">{timeLeft}s</p>
-  </div>
-)}
       </div>
 
       <div
-        className="flex-1 flex items-center justify-center px-4"
+        className="flex min-h-64 flex-1 items-center justify-center px-4"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -460,22 +412,39 @@ if (selectedActivity === "Yoga" && !hasChosenYogaMode) {
           <img
             src={currentExercise.image}
             alt={currentExercise.title}
-            className="h-full w-full object-contain"
+            className="max-h-[55vh] w-full object-contain"
           />
         ) : (
-          <div className="text-gray-400">Image non disponible</div>
+          <p className="max-w-xl py-8 text-center text-lg text-green-100">{currentExercise.instructions || currentExercise.title}</p>
         )}
       </div>
 
       <div className="p-6">
-        {hasTimer && !isTimerRunning && timeLeft !== null && (
-  <button
-    onClick={() => startTimer(timeLeft)}
-    className="w-full rounded-2xl bg-white text-black text-lg font-bold py-5 shadow-lg active:scale-95 transition"
-  >
-    Lancer le chrono
-  </button>
-)}
+        {currentExercise.image && (
+          <p className="mx-auto mb-4 max-w-xl text-center text-gray-300">{currentExercise.instructions}</p>
+        )}
+        {timerDuration !== null && timerDuration > 0 && (
+          <ExerciseTimer
+            key={currentExerciseIndex + ":" + timerDuration}
+            duration={timerDuration}
+            onComplete={goToNextExercise}
+          />
+        )}
+        <div className="mx-auto mt-4 flex max-w-xl gap-3">
+          <button
+            onClick={goToPreviousExercise}
+            disabled={currentExerciseIndex === 0}
+            className="flex-1 rounded-xl border border-green-500/40 px-4 py-3 disabled:opacity-40"
+          >
+            Précédent
+          </button>
+          <button
+            onClick={goToNextExercise}
+            className="flex-1 rounded-xl bg-green-500 px-4 py-3 font-semibold text-black"
+          >
+            {currentExerciseIndex === exercises.length - 1 ? "Terminer la séance" : "Suivant"}
+          </button>
+        </div>
 
         <p className="mt-3 text-center text-xs text-gray-400">
           Glisse à gauche ou à droite pour changer d’exercice

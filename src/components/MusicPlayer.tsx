@@ -8,6 +8,7 @@ const MUSIC_BY_ACTIVITY: Record<string, string> = {
   Jogging: "/audio/MuscuSong.mp3",
   Vélo: "/audio/MuscuSong.mp3",
   Yoga: "/audio/YogaSong.mp3",
+  "Street workout": "/audio/SW_SONG.mp3",
 };
 
 const DEFAULT_MUSIC = "/audio/HomeSong.mp3";

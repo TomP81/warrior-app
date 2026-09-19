@@ -8,10 +8,11 @@ const DISCIPLINE_ICONS: Record<string, string> = {
   Jogging: "/images/Coursse.png",
   Vélo: "/images/Vélo_Icone.png",
   Yoga: "/images/Yoga_Icone.png",
+  "Street workout": "/images/SW_Icone.png",
 };
 
 const DAYS_OF_WEEK = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-const DISCIPLINES = ["Muscu", "Jogging", "Vélo", "Yoga"];
+const DISCIPLINES = ["Muscu", "Jogging", "Vélo", "Yoga", "Street workout"];
 
 function getMonthLabel(date: Date) {
   return date.toLocaleDateString("fr-FR", {
