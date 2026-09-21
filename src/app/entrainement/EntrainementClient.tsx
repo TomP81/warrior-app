@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import CalisthenicsSetup from "@/components/CalisthenicsSetup";
 import ExerciseTimer from "@/components/ExerciseTimer";
+import ExerciseCarousel from "@/components/ExerciseCarousel";
 import type { CalisthenicsGoal, CalisthenicsLevel, WorkoutExercise } from "@/data/calisthenics";
 import { buildCircuit } from "@/lib/workout";
 
@@ -140,8 +141,6 @@ export default function EntrainementClient() {
   >({});
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
-  const [touchEndX, setTouchEndX] = useState<number | null>(null);
   const [calisthenicsSelection, setCalisthenicsSelection] = useState<{
     goal: CalisthenicsGoal;
     level: CalisthenicsLevel;
@@ -250,31 +249,6 @@ const currentExerciseInSeries =
     setCurrentExerciseIndex((prev) => prev - 1);
   }
 
-  function handleTouchStart(e: React.TouchEvent<HTMLDivElement>) {
-    setTouchEndX(null);
-    setTouchStartX(e.targetTouches[0].clientX);
-  }
-
-  function handleTouchMove(e: React.TouchEvent<HTMLDivElement>) {
-    setTouchEndX(e.targetTouches[0].clientX);
-  }
-
-  function handleTouchEnd() {
-    if (touchStartX === null || touchEndX === null) return;
-
-    const distance = touchStartX - touchEndX;
-    const minSwipeDistance = 50;
-
-    if (distance > minSwipeDistance) {
-      goToNextExercise();
-    } else if (distance < -minSwipeDistance) {
-      goToPreviousExercise();
-    }
-
-    setTouchStartX(null);
-    setTouchEndX(null);
-  }
-
   function goBackToCalendar() {
     const confirmQuit = window.confirm("Quitter l'entraînement ?");
     if (confirmQuit) {
@@ -365,7 +339,7 @@ if (selectedActivity === "Yoga" && !hasChosenYogaMode) {
 
   return (
     <main className="min-h-screen w-full bg-black text-white flex flex-col">
-      <div className="relative p-4 text-center">
+      <div className="relative px-14 py-2 text-center sm:p-4">
         <button
           aria-label="Quitter la séance"
           onClick={goBackToCalendar}
@@ -394,20 +368,20 @@ if (selectedActivity === "Yoga" && !hasChosenYogaMode) {
         </p>
 
         {isCalisthenics && calisthenicsSelection && (
-          <p className="mt-2 text-sm text-green-400">
+          <p className="mt-1 text-xs text-green-400 sm:mt-2 sm:text-sm">
             {calisthenicsSelection.goal.name} — Niveau {calisthenicsSelection.level.id}
           </p>
         )}
-        <h1 className="mt-1 text-xl font-semibold">{currentExercise.title}</h1>
+        <h1 className="mt-1 text-lg font-semibold sm:text-xl">{currentExercise.title}</h1>
 
       </div>
 
-      <div
-        className="flex min-h-64 flex-1 items-center justify-center px-4"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
+      <ExerciseCarousel
+        exercises={exercises}
+        currentIndex={currentExerciseIndex}
+        onChange={setCurrentExerciseIndex}
+      />
+      <div className="hidden min-h-64 flex-1 items-center justify-center px-4 sm:flex">
         {currentExercise.image ? (
           <img
             src={currentExercise.image}
@@ -419,9 +393,9 @@ if (selectedActivity === "Yoga" && !hasChosenYogaMode) {
         )}
       </div>
 
-      <div className="p-6">
+      <div className="px-4 py-3 sm:p-6">
         {currentExercise.image && (
-          <p className="mx-auto mb-4 max-w-xl text-center text-gray-300">{currentExercise.instructions}</p>
+          <p className="mx-auto mb-2 max-w-xl text-center text-sm text-gray-300 sm:mb-4 sm:text-base">{currentExercise.instructions}</p>
         )}
         {timerDuration !== null && timerDuration > 0 && (
           <ExerciseTimer
@@ -430,7 +404,7 @@ if (selectedActivity === "Yoga" && !hasChosenYogaMode) {
             onComplete={goToNextExercise}
           />
         )}
-        <div className="mx-auto mt-4 flex max-w-xl gap-3">
+        <div className="mx-auto mt-4 hidden max-w-xl gap-3 sm:flex">
           <button
             onClick={goToPreviousExercise}
             disabled={currentExerciseIndex === 0}
@@ -446,9 +420,14 @@ if (selectedActivity === "Yoga" && !hasChosenYogaMode) {
           </button>
         </div>
 
-        <p className="mt-3 text-center text-xs text-gray-400">
-          Glisse à gauche ou à droite pour changer d’exercice
-        </p>
+        {currentExerciseIndex === exercises.length - 1 && (
+          <button
+            onClick={finishTraining}
+            className="mx-auto mt-4 block w-full max-w-xl rounded-xl bg-green-500 px-4 py-3 font-semibold text-black sm:hidden"
+          >
+            Terminer la séance
+          </button>
+        )}
       </div>
     </main>
   );
