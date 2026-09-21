@@ -48,7 +48,8 @@ export const CALISTHENICS_GOALS: CalisthenicsGoal[] = [
           {
             "title": "Tractions",
             "image": "/images/SW_TRACTIONS_N1.png",
-            "instructions": "Passe à la suite une fois ton exercice terminé."
+            "instructions": "Passe à la suite une fois ton exercice terminé.",
+            "durationSeconds": 30
           },
           {
             "title": "Pompes",
@@ -99,7 +100,8 @@ export const CALISTHENICS_GOALS: CalisthenicsGoal[] = [
           {
             "title": "Tractions — N1",
             "image": "/images/SW_TRACTIONS_N1.png",
-            "instructions": "Passe à la suite une fois ton exercice terminé."
+            "instructions": "Passe à la suite une fois ton exercice terminé.",
+            "durationSeconds": 30
           },
           {
             "title": "Pompes",
@@ -159,7 +161,7 @@ export const CALISTHENICS_GOALS: CalisthenicsGoal[] = [
           },
           {
             "title": "Pompes",
-            "image": "/images/SW_POMPE_N2.png",
+            "image": "/images/SW_POMPE_N3.png",
             "instructions": "Passe à la suite une fois ton exercice terminé."
           },
           {
